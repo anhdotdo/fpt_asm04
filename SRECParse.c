@@ -141,6 +141,8 @@ SREC_Status_Type SREC_ReadLine(uint8_t *is_valid_format){
     SREC_Status_Type status = SREC_LINE_TRUE;
     uint8_t buffer[9];
     uint8_t idx;
+    uint8_t actual_byte_count = 0;
+    uint32_t current_offset;
 
     SREC_InitLine(&srec_line);
 
@@ -158,10 +160,26 @@ SREC_Status_Type SREC_ReadLine(uint8_t *is_valid_format){
                 status = Str2Hex(buffer, 2, (uint32_t*)&srec_line.ByteCount);
 
                 if(status == SREC_LINE_TRUE){
-                    // buf[9] read address, just for S1/S2/S3
-                    srec_address_bytes = Char2Hex(srec_line.SrecType[1]) + 1;
-                    fgets(buffer, srec_address_bytes * 2 + 1, fPtr);
-                    status = Str2Hex(buffer, srec_address_bytes * 2, &srec_line.Address);
+                    // =>bytecount acctually gotten and compare with srec_line.ByteCount
+                    current_offset = ftell(fPtr);
+                    while (fgetc(fPtr) != '\n' && feof(fPtr) == 0)
+                    {
+                        actual_byte_count++;
+                    }
+                    fseek(fPtr, current_offset, SEEK_SET);
+                    if(actual_byte_count < 2 * srec_line.ByteCount){           // case of error bytecount: lack of data
+                        status = SREC_ERROR_BYTECOUNT;
+                        srec_line.Address = 0x00;                           // default value
+                        // srec_line.Data empty as well
+                        while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);        
+                    }
+
+                    if(status == SREC_LINE_TRUE){
+                        // buf[9] read address, just for S1/S2/S3
+                        srec_address_bytes = Char2Hex(srec_line.SrecType[1]) + 1;
+                        fgets(buffer, srec_address_bytes * 2 + 1, fPtr);
+                        status = Str2Hex(buffer, srec_address_bytes * 2, &srec_line.Address);
+                    }
 
                     if(status == SREC_LINE_TRUE){
                         // uint8_t *data read data, using dynamic allocation
@@ -200,23 +218,35 @@ SREC_Status_Type SREC_ReadLine(uint8_t *is_valid_format){
                             else{
                                 while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
                             }
+                        }else{
+                            status = SREC_ERROR_FORMAT;
+                            while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
                         }
+                    }else{
+                        status = SREC_ERROR_FORMAT;
+                        while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
                     }
+                }else{
+                    status = SREC_ERROR_FORMAT;
+                    while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
                 }
             }else if(srec_line.SrecType[1] == '7' || srec_line.SrecType[1] == '8' || srec_line.SrecType[1] == '9'){
                 // end srec file
                 status = SREC_FILE_END;
-                if(fgetc(fPtr) != '\n' && feof(fPtr) == 0){
-                    while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
-                }
+                while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
+                // if(fgetc(fPtr) != '\n' && feof(fPtr) == 0){
+                //     while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
+                // }
             }else{
                 // '5', '6'
-                if(fgetc(fPtr) != '\n' && feof(fPtr) == 0){
-                    while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
-                }
+                while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
+                // if(fgetc(fPtr) != '\n' && feof(fPtr) == 0){
+                //     while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
+                // }
             }
         }else{
             status = SREC_ERROR_FORMAT;
+            while(fgetc(fPtr) != '\n' && feof(fPtr) == 0);
         }
     }else{
         status = SREC_FILE_NOT_EXIST;

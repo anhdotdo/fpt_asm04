@@ -1,11 +1,12 @@
 #include"UTest.h"
-#define MAX_LEN 4
+#define MAX_LEN 5
 
 static const SREC_Status_Type expectedStatus[MAX_LEN] = {
                                                 SREC_LINE_TRUE,
                                                 SREC_ERROR_BYTECOUNT,
                                                 SREC_ERROR_CHECKSUM,
-                                                SREC_ERROR_FORMAT
+                                                SREC_ERROR_FORMAT,
+                                                SREC_ERROR_BYTECOUNT
                                                 };
 
 uint8_t getMaxLen(){
